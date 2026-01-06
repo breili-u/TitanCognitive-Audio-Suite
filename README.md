@@ -45,7 +45,7 @@ Dataset initialization
 from titan import TitanDataset, TitanNewtonianLoss
 
 # The dataset handles downloads and IR caching automatically
-dataset = TitanDatasetV15(max_len=16384, items_limit=10000)
+dataset = TitanDataset(max_len=16384, items_limit=10000)
 
 # Loss function configuration
 criterion = TitanNewtonianLoss()
@@ -57,7 +57,7 @@ for epoch in range(100):
     for batch in dataloader:
         optimizer.zero_grad()
         
-        # El modelo debe retornar un diccionario con salidas múltiples
+        #The model must return a dictionary with multiple outputs.
         outputs = model(batch["x"]) 
         
         loss = criterion(outputs, batch, epoch, dataset.phase)
