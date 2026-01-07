@@ -24,7 +24,7 @@ class RoomSimulator:
         ir = random.choice(self.ir_cache).to(wav.device)
         padded = F.pad(wav, (0, ir.shape[-1]))
         conv = torchaudio.functional.fftconvolve(padded, ir, mode="full")
-        # Normalizar y cortar cola
+        # Normalize and trim tail
         conv = conv / (conv.abs().max() + 1e-9)
         return conv[..., :wav.shape[-1]]
 
@@ -33,11 +33,11 @@ class SignalDegrader:
         return torch.clamp(wav, -threshold, threshold)
 
     def apply_bandpass(self, wav, sr):
-        # Efecto teléfono
+        # Telephone effect
         return torchaudio.functional.bandpass_biquad(wav, sr, 1500, 0.6)
 
     def apply_brutal(self, wav):
-        """La famosa 'Brutalizer' del proyecto Titan."""
+        """The famous 'Brutalizer' from the Titan project."""
         gain = random.uniform(0.3, 2.0)
         wav = wav * gain
         if random.random() < 0.2: 

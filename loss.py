@@ -3,33 +3,33 @@ import torch.nn as nn
 
 class NewtonianLoss(nn.Module):
     """
-    Una función de pérdida robusta diseñada para reconstrucción de audio de alta fidelidad.
-    Combina SI-SDR (Scale-Invariant Signal-to-Distortion Ratio) con L1 Loss
-    y corrección automática de DC Offset.
+    A robust loss function designed for high-fidelity audio reconstruction.
+    Combines SI-SDR (Scale-Invariant Signal-to-Distortion Ratio) with L1 Loss
+    and automatic DC offset correction.
     
-    Características:
-    - Invariante a la escala (el volumen no afecta la métrica).
-    - Inmune al DC Offset (centra las señales antes de comparar).
-    - 'Gated': No explota (NaN) cuando el target es silencio puro.
+    Features:
+    - Scale-invariant (volume does not affect the metric).
+    - Immune to DC offset (centers signals before comparison).
+    - Gated: avoids exploding (NaN) when the target is pure silence.
     """
     def __init__(self, alpha=1.0, beta=0.1, eps=1e-8):
         super().__init__()
-        self.alpha = alpha # Peso para SI-SDR
-        self.beta = beta   # Peso para L1 (Auxiliar/Silencio)
+        self.alpha = alpha # Weight for SI-SDR
+        self.beta = beta   # Weight for L1 (aux/silence)
         self.eps = eps
         self.l1 = nn.L1Loss(reduction='none')
 
     def sisdr(self, preds, target):
-        # Asegurar dimensiones [B, T]
+        # Ensure shape [B, T]
         if preds.ndim == 3: preds = preds.squeeze(1)
         if target.ndim == 3: target = target.squeeze(1)
         
-        # 1. NEWTONIAN CENTERING (DC Offset removal)
-        # Fundamental para redes que introducen bias flotante
+        # 1. NEWTONIAN CENTERING (DC offset removal)
+        # Crucial for networks that introduce floating bias
         preds = preds - preds.mean(dim=-1, keepdim=True)
         target = target - target.mean(dim=-1, keepdim=True)
         
-        # 2. Proyección Ortogonal
+        # 2. Orthogonal Projection
         # alpha = <preds, target> / ||target||^2
         dot_product = (preds * target).sum(dim=-1, keepdim=True)
         target_energy = target.pow(2).sum(dim=-1, keepdim=True) + self.eps
@@ -46,22 +46,22 @@ class NewtonianLoss(nn.Module):
         return 10 * torch.log10(val_s / (val_n + self.eps) + self.eps)
 
     def forward(self, preds, target):
-        # Calcular energía para determinar si es silencio
+        # Compute energy to determine if silence
         target_energy = target.pow(2).mean(dim=-1)
-        # Máscara: 1 si hay audio, 0 si es silencio (Gate)
+        # Mask: 1 if active audio, 0 if silence (gate)
         active_mask = (target_energy > 1e-5).float()
         
         # SI-SDR (Negativo porque queremos minimizar)
-        # Solo válido donde hay señal activa
+        # Only valid where signal is active
         sisdr_val = -self.sisdr(preds, target)
         
-        # L1 Loss (Auxiliar para estabilidad y para zonas de silencio)
+        # L1 Loss (auxiliary for stability and silent regions)
         l1_val = self.l1(preds, target).mean(dim=-1)
         
-        # Lógica Híbrida:
-        # - Si hay Audio: Usamos principalmente SI-SDR (Alta fidelidad)
-        # - Si es Silencio: Usamos L1 puro (Denoising absoluto)
+        # Hybrid logic:
+        # - If there is audio: primarily use SI-SDR (high fidelity)
+        # - If silence: use pure L1 (absolute denoising)
         loss_per_batch = active_mask * (self.alpha * sisdr_val + self.beta * l1_val) + \
-                         (1 - active_mask) * (l1_val * 10.0) # Penalización fuerte al ruido en silencio
+                 (1 - active_mask) * (l1_val * 10.0) # Strong penalty for noise during silence
                          
         return loss_per_batch.mean()

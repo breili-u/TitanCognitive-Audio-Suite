@@ -7,20 +7,20 @@ import random
 
 def safe_load_audio(file_path, target_sr=16000, target_len=None, force_mono=True):
     """
-    Carga, resamplea y ajusta un archivo de audio de forma segura.
+    Safely loads, resamples, and adjusts an audio file.
     
     Args:
-        file_path (str/Path): Ruta al archivo de audio.
-        target_sr (int): Sample rate deseado.
-        target_len (int, optional): Longitud fija en muestras. Si es None, devuelve el original.
-        force_mono (bool): Si True, promedia canales para devolver [1, T].
+        file_path (str/Path): Path to the audio file.
+        target_sr (int): Desired sample rate.
+        target_len (int, optional): Fixed length in samples. If None, returns original length.
+        force_mono (bool): If True, averages channels to return [1, T].
         
     Returns:
-        torch.Tensor: Audio procesado [Channels, Time] o None si falla.
+        torch.Tensor: Processed audio [Channels, Time] or None on failure.
     """
     try:
         path = str(file_path)
-        # Carga rápida (backend-agnostic)
+        # Fast load (backend-agnostic)
         waveform, sr = torchaudio.load(path)
         
         # 1. Resampling
@@ -32,21 +32,21 @@ def safe_load_audio(file_path, target_sr=16000, target_len=None, force_mono=True
         if force_mono and waveform.shape[0] > 1:
             waveform = torch.mean(waveform, dim=0, keepdim=True)
         elif not force_mono and waveform.shape[0] == 1:
-            # Si pedimos estéreo pero es mono, duplicamos
+            # If stereo requested but input is mono, duplicate
             waveform = waveform.repeat(2, 1)
             
-        # 3. Padding / Cropping (Si se especifica longitud)
+        # 3. Padding / Cropping (if a target length is specified)
         if target_len is not None:
             current_len = waveform.shape[1]
             
             if current_len > target_len:
-                # Crop aleatorio (para entrenamiento)
+                # Random crop (for training)
                 start = random.randint(0, current_len - target_len)
                 waveform = waveform[:, start:start + target_len]
             elif current_len < target_len:
-                # Pad con ceros (o reflect)
+                # Pad with zeros (or reflect)
                 padding = target_len - current_len
-                # Pad a la derecha
+                # Right-pad
                 waveform = F.pad(waveform, (0, padding), "constant", 0)
                 
         return waveform
@@ -57,7 +57,7 @@ def safe_load_audio(file_path, target_sr=16000, target_len=None, force_mono=True
 
 def scan_audio_files(directory, extensions=['.wav', '.flac', '.mp3']):
     """
-    Escanea recursivamente un directorio buscando archivos de audio válidos.
+    Recursively scans a directory for valid audio files.
     """
     files = []
     path = Path(directory)
@@ -65,16 +65,16 @@ def scan_audio_files(directory, extensions=['.wav', '.flac', '.mp3']):
         return []
         
     for ext in extensions:
-        # Case insensitive search sería ideal, pero glob es simple
+        # Case-insensitive search would be ideal, but glob is simple
         files.extend(list(path.rglob(f"*{ext}")))
         files.extend(list(path.rglob(f"*{ext.upper()}")))
         
     return sorted([str(f) for f in files])
 
 def db_to_linear(db):
-    """Convierte decibelios a escala lineal."""
+    """Converts decibels to linear scale."""
     return 10 ** (db / 20.0)
 
 def linear_to_db(scale):
-    """Convierte escala lineal a decibelios."""
+    """Converts linear scale to decibels."""
     return 20.0 * torch.log10(scale + 1e-9)

@@ -22,4 +22,4 @@ __all__ = [
     "scan_audio_files",
 ]
 
-print(f"🧬 titan_data v{__version__} initialized - Ready for Chaos.")
+print(f"v{__version__} initialized - Ready for Chaos.")

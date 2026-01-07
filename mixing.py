@@ -2,16 +2,16 @@ import torch
 import math
 
 def calculate_rms(tensor):
-    """Calcula el Root Mean Square seguro."""
+    """Computes a safe Root Mean Square (RMS)."""
     return tensor.norm(p=2) / (math.sqrt(tensor.numel()) + 1e-9)
 
 def mix_signals(clean, noise, snr_db):
     """
-    Mezcla dos señales respetando un SNR objetivo en dB.
+    Mixes two signals to achieve a target SNR in dB.
     Args:
-        clean (Tensor): Audio limpio [C, T] o [T]
-        noise (Tensor): Ruido [C, T] o [T]
-        snr_db (float): Relación Señal-Ruido deseada (ej: 10.0, -5.0)
+        clean (Tensor): Clean audio [C, T] or [T]
+        noise (Tensor): Noise [C, T] or [T]
+        snr_db (float): Desired Signal-to-Noise Ratio (e.g., 10.0, -5.0)
     """
     clean_rms = calculate_rms(clean)
     noise_rms = calculate_rms(noise)
@@ -19,7 +19,7 @@ def mix_signals(clean, noise, snr_db):
     if noise_rms < 1e-9: 
         return clean
     
-    # Fórmula: target_noise = clean / 10^(snr/20)
+    # Formula: target_noise = clean / 10^(snr/20)
     target_noise_rms = clean_rms / (10**(snr_db/20))
     scale = target_noise_rms / (noise_rms + 1e-9)
     
